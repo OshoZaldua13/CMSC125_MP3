@@ -1,0 +1,189 @@
+#include <iostream>
+#include <iomanip>
+
+using namespace std;
+
+class Memory {
+private:
+    int jobTime[25], jobSize[25], memoryBlockSize[10]; //dili tari hilabtan
+    int memoryJob[10], memoryTime[10], queueTime[25]; //kani pwede ra hilabtan
+    bool isMemoryOccupied[10];
+    const int numberOfJobs = 25;
+    const int numberOfBlocks = 10;
+    bool isRunning = true;
+    int elapsedTime = 0;
+    int minusJobs = 0;
+    int queueLength = 0;
+    int internalFragmentation = 0;
+
+public:
+    Memory();
+    void firstFit();
+    void worstFit();
+    void filterJobs();
+    void transferArray(int[], int[]);
+    void testPrint();
+};
+
+int main(){
+    Memory m;
+    m.filterJobs();
+    m.firstFit();
+    m.worstFit();
+    // m.testPrint();
+}
+
+Memory::Memory(){
+//normal constructor stuff
+    isRunning = true;
+    elapsedTime = queueLength = internalFragmentation = 0;
+    for(int i=0;i<10;i++)
+        memoryJob[i] = memoryTime[i] = isMemoryOccupied[i] = 0;
+    
+     for(int i=0;i<25;i++)
+        queueTime[i] = 0;
+
+//job time stamp initialization
+    jobTime[0] = 5;
+    jobTime[1] = 4;
+    jobTime[2] = 8;
+    jobTime[3] = 2;
+    jobTime[4] = 2;
+    jobTime[5] = 6;
+    jobTime[6] = 8;
+    jobTime[7] = 10;
+    jobTime[8] = 7;
+    jobTime[9] = 6;
+    jobTime[10] = 5;
+    jobTime[11] = 8;
+    jobTime[12] = 9;
+    jobTime[13] = 10;
+    jobTime[14] = 10;
+    jobTime[15] = 7;
+    jobTime[16] = 3;
+    jobTime[17] = 1;
+    jobTime[18] = 9;
+    jobTime[19] = 3;
+    jobTime[20] = 7;
+    jobTime[21] = 2;
+    jobTime[22] = 8;
+    jobTime[23] = 5;
+    jobTime[24] = 10;
+
+//job size initialization
+    jobSize[0] = 5760;
+    jobSize[1] = 4190;
+    jobSize[2] = 3290;
+    jobSize[3] = 2030;
+    jobSize[4] = 2550; 
+    jobSize[5] = 6990;
+    jobSize[6] = 8940;
+    jobSize[7] = 740;
+    jobSize[8] = 3930;
+    jobSize[9] = 6890;
+    jobSize[10] = 6580;
+    jobSize[11] = 3820;
+    jobSize[12] = 9140;
+    jobSize[13] = 420;
+    jobSize[14] = 220;
+    jobSize[15] = 7540;
+    jobSize[16] = 3210;
+    jobSize[17] = 1380;
+    jobSize[18] = 9850;
+    jobSize[19] = 3610;
+    jobSize[20] = 7540;
+    jobSize[21] = 2710;
+    jobSize[22] = 8390;
+    jobSize[23] = 5950;
+    jobSize[24] = 760;
+
+//memory block size initialization
+    memoryBlockSize[0] = 9500;
+    memoryBlockSize[1] = 7000;
+    memoryBlockSize[2] = 4500;
+    memoryBlockSize[3] = 8500;
+    memoryBlockSize[4] = 3000;
+    memoryBlockSize[5] = 9000;
+    memoryBlockSize[6] = 1000;
+    memoryBlockSize[7] = 5500;
+    memoryBlockSize[8] = 1500;
+    memoryBlockSize[9] = 500;   
+}
+
+void Memory::firstFit(){
+    while(isRunning){
+        for(int i=0;i<numberOfJobs;i++)
+            for(int j=0;j<numberOfBlocks;j++)
+                if(jobSize[i]<=memoryBlockSize[j]&&memoryJob[j]==0&&jobSize[i]!=0){
+                    memoryJob[j] = jobSize[i];
+                    memoryTime[j] = jobTime[i];
+                    queueTime[i] = elapsedTime; //queue time
+                    internalFragmentation = internalFragmentation + (memoryBlockSize[j]-jobSize[i]);
+                    jobSize[i] = jobTime[i] = 0;
+                    j = numberOfBlocks;
+                }
+        //queue length
+        for(int i=0;i<numberOfJobs;i++)
+            if(jobSize[i]!=0)
+                queueLength++;
+
+        //minus time stamp and check if ma zero na ba then meaning pwede na mu allocate og laing process ang isa ka memory     
+        for(int i=0;i<numberOfBlocks;i++){
+            if(memoryTime[i]!=0)
+                memoryTime[i]--;
+            if(memoryTime[i]==0)
+                memoryJob[i] = 0;
+        }
+        int totalJobTime = 0;
+        for(int i=0;i<numberOfBlocks;i++)
+            totalJobTime+=memoryTime[i];
+        if(totalJobTime==0)
+            isRunning = false;
+        elapsedTime++;
+    }
+    //printing the average througput
+    float throughput;
+    throughput = 1.0*(numberOfJobs-minusJobs)/elapsedTime;
+    cout << "Throughput time: " << setprecision(7) << throughput << " jobs per second" << endl;
+
+    //printing the average waiting queue length
+    cout << "Average waiting queue length per time stamp: " << 1.0*queueLength/elapsedTime << " jobs per second" << endl;
+
+    //printing the total queue time
+    int totalQueueTime = 0;
+    for(int i=0;i<numberOfJobs;i++)
+        totalQueueTime+=queueTime[i];
+    cout << "Overall waiting queue time: " << totalQueueTime << " seconds" << endl;
+
+    //printing total internal fragmentation
+    cout << "Total internal fragmentation: " << internalFragmentation << "kb" << endl;
+    testPrint();
+}
+
+void Memory::worstFit(){
+    Memory();
+    testPrint();
+}
+void Memory::filterJobs(){
+    int maximum = 0;
+    for(int i=0;i<numberOfBlocks;i++)
+        if(memoryBlockSize[i]>maximum)
+            maximum = memoryBlockSize[i];
+
+    for(int i=0;i<numberOfJobs;i++) 
+        if(jobSize[i]>maximum){
+            jobSize[i] = jobTime[i] = 0;
+            minusJobs++;
+        }
+}
+
+void Memory::transferArray(int arr1[25], int arr2[25]){
+    for(int i=0;i<numberOfJobs;i++)
+        arr1[i] = arr2[i];
+}
+
+void Memory::testPrint(){
+    for(int i=0;i<numberOfJobs;i++)
+        cout << jobSize[i] << " ";
+    cout << endl;
+}

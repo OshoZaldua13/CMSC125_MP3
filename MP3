@@ -6,7 +6,7 @@ using namespace std;
 class Memory {
 private:
     int jobTime[25], jobSize[25], memoryBlockSize[10]; //dili tari hilabtan
-    int memoryJob[10], memoryTime[10], queueTime[25]; //kani pwede ra hilabtan
+    int memoryJob[10], memoryTime[10], queueTime[25], storageUtilization[10]; //kani pwede ra hilabtan
     bool isMemoryOccupied[10];
     const int numberOfJobs = 25;
     const int numberOfBlocks = 10;
@@ -20,30 +20,43 @@ public:
     Memory();
     void firstFit();
     void worstFit();
+    void bestFit();
     void filterJobs();
-    void transferArray(int[], int[]);
+    void initialize();
     void testPrint();
 };
 
 int main(){
     Memory m;
-    m.filterJobs();
     m.firstFit();
     m.worstFit();
+    m.bestFit();
     // m.testPrint();
 }
 
 Memory::Memory(){
-//normal constructor stuff
-    isRunning = true;
-    elapsedTime = queueLength = internalFragmentation = 0;
     for(int i=0;i<10;i++)
-        memoryJob[i] = memoryTime[i] = isMemoryOccupied[i] = 0;
+        memoryJob[i] = memoryTime[i] = isMemoryOccupied[i] = memoryBlockSize[i] = storageUtilization[i] = 0;
     
      for(int i=0;i<25;i++)
+        queueTime[i] = jobSize[i] = jobTime[i] = 0;
+
+    isRunning = true;
+    elapsedTime = queueLength = internalFragmentation = 0;
+}
+
+void Memory::initialize(){
+    //reset
+    for(int i=0;i<10;i++)
+        memoryJob[i] = memoryTime[i] = isMemoryOccupied[i] = storageUtilization[i] = 0;
+
+    for(int i=0;i<25;i++)
         queueTime[i] = 0;
 
-//job time stamp initialization
+    isRunning = true;
+    elapsedTime = queueLength = internalFragmentation = 0;
+
+    //job time stamp initialization
     jobTime[0] = 5;
     jobTime[1] = 4;
     jobTime[2] = 8;
@@ -107,10 +120,14 @@ Memory::Memory(){
     memoryBlockSize[6] = 1000;
     memoryBlockSize[7] = 5500;
     memoryBlockSize[8] = 1500;
-    memoryBlockSize[9] = 500;   
+    memoryBlockSize[9] = 500;  
+
+//filter katong mga dako ra kaayo nga memory para sa storage
+    filterJobs(); 
 }
 
 void Memory::firstFit(){
+    initialize();
     while(isRunning){
         for(int i=0;i<numberOfJobs;i++)
             for(int j=0;j<numberOfBlocks;j++)
@@ -120,6 +137,7 @@ void Memory::firstFit(){
                     queueTime[i] = elapsedTime; //queue time
                     internalFragmentation = internalFragmentation + (memoryBlockSize[j]-jobSize[i]);
                     jobSize[i] = jobTime[i] = 0;
+                    storageUtilization[j]++;
                     j = numberOfBlocks;
                 }
         //queue length
@@ -141,6 +159,7 @@ void Memory::firstFit(){
             isRunning = false;
         elapsedTime++;
     }
+    cout << "FIRST-FIT\n";
     //printing the average througput
     float throughput;
     throughput = 1.0*(numberOfJobs-minusJobs)/elapsedTime;
@@ -157,13 +176,150 @@ void Memory::firstFit(){
 
     //printing total internal fragmentation
     cout << "Total internal fragmentation: " << internalFragmentation << "kb" << endl;
-    testPrint();
+
+    //print storage util
+    cout << "Storage Utilization:\n";
+    for(int i=0;i<numberOfBlocks;i++)
+        cout << "   Memory Block " << i+1 << ": " << storageUtilization[i] << " jobs\n";
 }
 
 void Memory::worstFit(){
-    Memory();
-    testPrint();
+    initialize();
+    while(isRunning){
+        for(int i=0;i<numberOfJobs;i++){
+            int maximum = 0;
+            int maximumIndex = 0;
+            for(int j=0;j<numberOfBlocks;j++)
+                if(memoryJob[j]==0&&memoryBlockSize[j]>maximum&&jobSize[i]!=0){
+                    maximum = memoryBlockSize[j];
+                    maximumIndex = j;
+                }
+            if(jobSize[i]<=memoryBlockSize[maximumIndex]&&memoryJob[maximumIndex]==0&&jobSize[i]!=0){
+                memoryJob[maximumIndex] = jobSize[i];
+                memoryTime[maximumIndex] = jobTime[i];
+                queueTime[i] = elapsedTime; //queue time
+                internalFragmentation = internalFragmentation + (memoryBlockSize[maximumIndex]-jobSize[i]); //internal fragmentation
+                storageUtilization[maximumIndex]++;
+                jobSize[i] = jobTime[i] = 0;
+            }
+        }   
+        //queue length
+        for(int i=0;i<numberOfJobs;i++)
+            if(jobSize[i]!=0)
+                queueLength++;
+
+        //time stamp and checki if human na ba og gamit og memory ang isa ka job
+        for(int i=0;i<numberOfBlocks;i++){
+            if(memoryTime[i]!=0)
+                memoryTime[i]--;
+            if(memoryTime[i]==0)
+                memoryJob[i] = 0;
+        }
+
+        //check if wala na bay mugamit para ma end na ang loop
+        int totalJobTime = 0;
+        for(int i=0;i<numberOfBlocks;i++)
+            totalJobTime+=memoryTime[i];
+        if(totalJobTime==0)
+            isRunning = false;
+        elapsedTime++;
+    }
+    cout << "\nWORST-FIT\n";
+    //printing the average througput
+    float throughput;
+    throughput = 1.0*(numberOfJobs-minusJobs)/elapsedTime;
+    cout << "Throughput time: " << setprecision(7) << throughput << " jobs per second" << endl;
+
+    //printing the average waiting queue length
+    cout << "Average waiting queue length per time stamp: " << 1.0*queueLength/elapsedTime << " jobs per second" << endl;
+
+    //printing the total queue time
+    int totalQueueTime = 0;
+    for(int i=0;i<numberOfJobs;i++)
+        totalQueueTime+=queueTime[i];
+    cout << "Overall waiting queue time: " << totalQueueTime << " seconds" << endl;
+
+    //printing total internal fragmentation
+    cout << "Total internal fragmentation: " << internalFragmentation << "kb" << endl;
+
+    //print storage util
+    cout << "Storage Utilization:\n";
+    for(int i=0;i<numberOfBlocks;i++)
+        cout << "   Memory Block " << i+1 << ": " << storageUtilization[i] << " jobs\n";
 }
+
+void Memory::bestFit(){
+    initialize();
+    while(isRunning){
+        for(int i=0;i<numberOfJobs;i++){
+            //init sa minimum
+            int minimum = 0;
+            for(int j=0;j<numberOfBlocks;j++)
+                if(memoryJob[j]==0&&memoryBlockSize[j]>=jobSize[i]){
+                    minimum = memoryBlockSize[j];
+                    j = numberOfBlocks;
+                }    
+            int minIndex = 0;
+            for(int j=0;j<numberOfBlocks;j++){
+                if(memoryBlockSize[j]<minimum&&memoryBlockSize[j]>=jobSize[i]&&jobSize[i]!=0&&memoryJob[j]==0){
+                    minimum = memoryBlockSize[j];
+                    minIndex = j;
+                }
+            }
+            if(jobSize[i]<=memoryBlockSize[minIndex]&&memoryJob[minIndex]==0&&jobSize[i]!=0){
+                memoryJob[minIndex] = jobSize[i];
+                memoryTime[minIndex] = jobTime[i];
+                queueTime[i] = elapsedTime; //queue time
+                internalFragmentation = internalFragmentation + (memoryBlockSize[minIndex]-jobSize[i]); //internal fragmentation
+                storageUtilization[minIndex]++;
+                jobSize[i] = jobTime[i] = 0;
+            }
+        }
+        //queue length
+        for(int i=0;i<numberOfJobs;i++)
+            if(jobSize[i]!=0)
+                queueLength++;
+
+        //time stamp and checki if human na ba og gamit og memory ang isa ka job
+        for(int i=0;i<numberOfBlocks;i++){
+            if(memoryTime[i]!=0)
+                memoryTime[i]--;
+            if(memoryTime[i]==0)
+                memoryJob[i] = 0;
+        }
+
+        //check if wala na bay mugamit para ma end na ang loop
+        int totalJobTime = 0;
+        for(int i=0;i<numberOfBlocks;i++)
+            totalJobTime+=memoryTime[i];
+        if(totalJobTime==0)
+            isRunning = false;
+        elapsedTime++;
+    }
+    cout << "\nBEST-FIT\n";
+    //printing the average througput
+    float throughput;
+    throughput = 1.0*(numberOfJobs-minusJobs)/elapsedTime;
+    cout << "Throughput time: " << setprecision(7) << throughput << " jobs per second" << endl;
+
+    //printing the average waiting queue length
+    cout << "Average waiting queue length per time stamp: " << 1.0*queueLength/elapsedTime << " jobs per second" << endl;
+
+    //printing the total queue time
+    int totalQueueTime = 0;
+    for(int i=0;i<numberOfJobs;i++)
+        totalQueueTime+=queueTime[i];
+    cout << "Overall waiting queue time: " << totalQueueTime << " seconds" << endl;
+
+    //printing total internal fragmentation
+    cout << "Total internal fragmentation: " << internalFragmentation << "kb" << endl;
+
+    //print storage util
+    cout << "Storage Utilization:\n";
+    for(int i=0;i<numberOfBlocks;i++)
+        cout << "   Memory Block " << i+1 << ": " << storageUtilization[i] << " jobs\n";
+}
+
 void Memory::filterJobs(){
     int maximum = 0;
     for(int i=0;i<numberOfBlocks;i++)
@@ -177,13 +333,8 @@ void Memory::filterJobs(){
         }
 }
 
-void Memory::transferArray(int arr1[25], int arr2[25]){
-    for(int i=0;i<numberOfJobs;i++)
-        arr1[i] = arr2[i];
-}
-
 void Memory::testPrint(){
-    for(int i=0;i<numberOfJobs;i++)
-        cout << jobSize[i] << " ";
+    for(int i=0;i<10;i++)
+        cout << memoryJob[i] << " ";
     cout << endl;
 }
